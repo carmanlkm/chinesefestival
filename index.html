@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寶可夢問答對戰遊戲</title>
+    <!-- Tailwind CSS for Layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- NES.css for Retro Pixel UI components -->
+    <link href="https://unpkg.com/nes.css@2.3.0/css/nes.min.css" rel="stylesheet" />
+    <!-- Google Fonts Pixel Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            font-family: 'Noto Sans TC', 'Press Start 2P', monospace;
+            user-select: none;
+        }
+        
+        .pixel-corners {
+            clip-path: polygon(
+                0 4px, 4px 4px, 4px 0,
+                calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
+                100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
+                4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
+            );
+        }
+
+        /* Dynamic Battle Backgrounds */
+        .bg-forest {
+            background: linear-gradient(to bottom, #72c681, #2e8b57);
+            background-image: radial-gradient(#1e5631 15%, transparent 16%), radial-gradient(#3a9155 15%, transparent 16%);
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 30px;
+        }
+        
+        .bg-mountain {
+            background: linear-gradient(to bottom, #e29578, #8d5b4c);
+            background-image: radial-gradient(#5c3a21 15%, transparent 16%), radial-gradient(#a36b51 15%, transparent 16%);
+            background-size: 50px 50px;
+            background-position: 0 0, 25px 25px;
+        }
+
+        .bg-city {
+            background: linear-gradient(to bottom, #4a4e69, #22223b);
+            background-image: linear-gradient(#3d3a45 2px, transparent 2px), linear-gradient(90deg, #3d3a45 2px, transparent 2px);
+            background-size: 40px 40px;
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-10px, 0); }
+            40% { transform: translate(10px, 0); }
+            60% { transform: translate(-8px, 0); }
+            80% { transform: translate(8px, 0); }
+        }
+        .animate-shake { animation: shake 0.5s ease-in-out; }
+
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .animate-flash { animation: flash 0.2s 3; }
+
+        @keyframes attackPlayer {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(-30px, -30px); }
+            100% { transform: translate(0, 0); }
+        }
+        .animate-attack-player { animation: attackPlayer 0.4s ease-in-out; }
+
+        @keyframes attackEnemy {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(30px, 30px); }
+            100% { transform: translate(0, 0); }
+        }
+        .animate-attack-enemy { animation: attackEnemy 0.4s ease-in-out; }
+
+        @keyframes bellRing {
+            0%, 100% { transform: rotate(0); }
+            20% { transform: rotate(15deg); }
+            40% { transform: rotate(-15deg); }
+            60% { transform: rotate(10deg); }
+            80% { transform: rotate(-10deg); }
+        }
+        .bell-ring { animation: bellRing 1.5s infinite; }
+
+        /* Particle CSS */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+            animation: popOut 0.6s ease-out forwards;
+        }
+
+        @keyframes popOut {
+            0% { transform: scale(0.2) translate(0, 0); opacity: 1; }
+            100% { transform: scale(1.5) translate(var(--tw-translate-x, 20px), var(--tw-translate-y, -20px)); opacity: 0; }
+        }
+
+        .hp-bar-transition {
+            transition: width 0.8s ease-in-out, background-color 0.5s ease;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #222;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #e53e3e;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+    <!-- 頂部導覽列 Navigation Bar -->
+    <header class="bg-slate-800 border-b-4 border-yellow-500 p-3 px-4 flex justify-between items-center shadow-lg relative z-20">
+        <div class="flex items-center space-x-2">
+            <span class="text-2xl">⚡</span>
+            <h1 class="text-lg md:text-xl font-bold tracking-wider text-yellow-400">Pokémon 寶可夢對戰問答</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div id="playerBadge" class="hidden text-xs md:text-sm bg-slate-700 px-3 py-1 rounded border border-gray-600">
+                👤 <span id="displayClass" class="text-green-400 font-bold"></span> | <span id="displayName" class="text-yellow-300 font-bold"></span>
+            </div>
+            <!-- 保密功能：閃爍小鈴鐺 -->
+            <button id="adminBellBtn" title="教師後台管理" class="focus:outline-none hover:scale-110 transition-transform">
+                <span class="text-2xl inline-block bell-ring cursor-pointer filter drop-shadow-md">🔔</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 主內容區塊 Main Container -->
+    <main class="flex-grow flex items-center justify-center p-2 md:p-6 relative">
+        
+        <!-- 一、遊戲前置登入畫面 Modal / Screen -->
+        <div id="loginScreen" class="absolute inset-0 z-30 flex items-center justify-center bg-gray-950 bg-opacity-95 p-4">
+            <div class="nes-container is-dark with-title max-w-md w-full border-4 border-yellow-500 shadow-2xl bg-gray-900">
+                <p class="title text-yellow-400 font-bold">訓練家登入系統</p>
+                <p class="text-sm text-gray-300 mb-6">歡迎進入寶可夢問答大賽！請先輸入您的學生身分資訊以開始對戰。</p>
+                
+                <form id="loginForm" onsubmit="handleStartGame(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs text-yellow-300 mb-1">班別 (Class):</label>
+                        <input type="text" id="inputClass" required placeholder="例如: 5A, 6B" class="nes-input is-dark w-full text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-yellow-300 mb-1">學生姓名 (Name):</label>
+                        <input type="text" id="inputName" required placeholder="例如: 陳小明" class="nes-input is-dark w-full text-sm">
+                    </div>
+                    <div class="pt-4">
+                        <button type="submit" class="nes-btn is-success w-full font-bold py-2">⚔️ 開始對戰</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 二、寶可夢對戰主要介面 Screen -->
+        <div id="battleScreen" class="w-full max-w-4xl bg-gray-800 rounded-lg overflow-hidden border-4 border-gray-700 shadow-2xl flex flex-col relative" style="min-height: 580px;">
+            
+            <!-- 手動背景切換器 & 標籤 -->
+            <div class="absolute top-2 left-2 z-10 flex space-x-2 bg-black bg-opacity-50 p-1.5 rounded-lg text-xs">
+                <span class="text-gray-300 self-center">背景:</span>
+                <button onclick="setBg('bg-forest')" class="px-2 py-0.5 bg-green-700 rounded hover:bg-green-600">森林</button>
+                <button onclick="setBg('bg-mountain')" class="px-2 py-0.5 bg-amber-700 rounded hover:bg-amber-600">山谷</button>
+                <button onclick="setBg('bg-city')" class="px-2 py-0.5 bg-indigo-700 rounded hover:bg-indigo-600">城市</button>
+            </div>
+
+            <!-- 戰鬥畫布舞台 Battle Stage -->
+            <div id="battleStage" class="bg-forest relative flex-grow min-h-[340px] flex flex-col justify-between p-4 md:p-6 transition-all duration-500 overflow-hidden">
+                
+                <!-- 特效粒子層 Particle Layer -->
+                <div id="particleLayer" class="absolute inset-0 pointer-events-none z-20"></div>
+
+                <!-- 敵方區域 (右上 / 左上區域) -->
+                <div class="flex justify-between items-start w-full md:w-3/4 self-start relative z-10">
+                    <!-- 敵方狀態欄 Status Box -->
+                    <div class="nes-container is-dark text-xs p-2 md:p-3 w-56 md:w-64 bg-gray-900 opacity-90 border-2 border-white">
+                        <div class="flex justify-between mb-1 font-bold">
+                            <span id="enemyName">加載中...</span>
+                            <span id="enemyTypes" class="text-yellow-400 text-[10px]"></span>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <span class="text-[10px] text-yellow-500 font-bold">HP</span>
+                            <div class="w-full bg-gray-700 h-3 rounded-full overflow-hidden border border-gray-500">
+                                <div id="enemyHpBar" class="bg-green-500 h-full w-full hp-bar-transition"></div>
+                            </div>
+                        </div>
+                        <div class="text-right text-[10px] text-gray-300 mt-0.5">
+                            <span id="enemyHpNum">--/--</span>
+                        </div>
+                        <!-- 敵方隊伍精靈球殘量 -->
+                        <div class="flex space-x-1 mt-1 justify-end" id="enemyBalls"></div>
+                    </div>
+
+                    <!-- 敵方寶可夢圖片 (右上方) -->
+                    <div class="relative flex justify-center items-center w-32 h-32 md:w-40 md:h-40">
+                        <img id="enemySprite" class="max-w-full max-h-full object-contain filter drop-shadow-lg" src="" alt="敵方寶可夢">
+                    </div>
+                </div>
+
+                <!-- 我方區域 (右下 / 左下對角) -->
+                <div class="flex justify-between items-end w-full md:w-3/4 self-end relative z-10">
+                    <!-- 我方寶可夢圖片 (左下 / 正面背影圖) -->
+                    <div class="relative flex justify-center items-center w-36 h-36 md:w-44 md:h-44">
+                        <img id="playerSprite" class="max-w-full max-h-full object-contain filter drop-shadow-lg" src="" alt="我方寶可夢">
+                    </div>
+
+                    <!-- 我方狀態欄 Status Box -->
+                    <div class="nes-container is-dark text-xs p-2 md:p-3 w-56 md:w-64 bg-gray-900 opacity-90 border-2 border-white">
+                        <div class="flex justify-between mb-1 font-bold">
+                            <span id="playerName">加載中...</span>
+                            <span id="playerTypes" class="text-yellow-400 text-[10px]"></span>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <span class="text-[10px] text-yellow-500 font-bold">HP</span>
+                            <div class="w-full bg-gray-700 h-3 rounded-full overflow-hidden border border-gray-500">
+                                <div id="playerHpBar" class="bg-green-500 h-full w-full hp-bar-transition"></div>
+                            </div>
+                        </div>
+                        <div class="text-right text-[10px] text-gray-300 mt-0.5">
+                            <span id="playerHpNum">--/--</span>
+                        </div>
+                        <!-- 我方隊伍精靈球殘量 -->
+                        <div class="flex space-x-1 mt-1 justify-start" id="playerBalls"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 下方 UI 介面（對話框與招式選單） -->
+            <div class="bg-gray-900 border-t-4 border-gray-700 p-3 grid grid-cols-1 md:grid-cols-12 gap-3 z-10 min-h-[140px]">
+                
+                <!-- 復古風對話框 (左側/全寬) -->
+                <div id="dialogBox" class="nes-container is-dark md:col-span-7 flex items-center min-h-[90px] relative">
+                    <p id="dialogText" class="text-xs md:text-sm leading-relaxed text-yellow-100 font-medium"></p>
+                </div>
+
+                <!-- 技能招式選單 Menu (右側) -->
+                <div id="actionMenu" class="md:col-span-5 grid grid-cols-2 gap-2">
+                    <button onclick="selectMove(0)" id="moveBtn0" class="nes-btn is-primary text-xs py-2 px-1 truncate disabled:opacity-50" disabled>招式 1</button>
+                    <button onclick="selectMove(1)" id="moveBtn1" class="nes-btn is-success text-xs py-2 px-1 truncate disabled:opacity-50" disabled>招式 2</button>
+                    <button onclick="selectMove(2)" id="moveBtn2" class="nes-btn is-warning text-xs py-2 px-1 truncate disabled:opacity-50" disabled>招式 3</button>
+                    <button onclick="selectMove(3)" id="moveBtn3" class="nes-btn is-error text-xs py-2 px-1 truncate disabled:opacity-50" disabled>招式 4</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 三、答題 Modal (選擇技能後觸發) -->
+        <div id="quizModal" class="hidden absolute inset-0 z-40 bg-black bg-opacity-80 flex items-center justify-center p-4">
+            <div class="nes-container is-dark border-4 border-yellow-400 max-w-lg w-full bg-gray-900">
+                <div class="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
+                    <span class="text-xs text-yellow-400 font-bold">🎯 文化知識考核 - 回答以發動招式</span>
+                    <span id="quizMoveName" class="text-xs bg-red-600 px-2 py-0.5 rounded text-white font-bold"></span>
+                </div>
+                <h3 id="quizQuestion" class="text-sm md:text-base font-bold text-white mb-4 leading-normal"></h3>
+                
+                <div id="quizOptions" class="space-y-2">
+                    <!-- 動態生成選項 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 五、玩家答題分析面板 Modal (遊戲結束後顯示) -->
+        <div id="resultModal" class="hidden absolute inset-0 z-50 bg-gray-950 bg-opacity-95 flex items-center justify-center p-4 overflow-y-auto">
+            <div class="nes-container is-dark border-4 border-yellow-500 max-w-2xl w-full bg-gray-900 my-8">
+                <p class="title text-yellow-400 text-base font-bold">🏆 對戰結果與學業分析面板</p>
+                
+                <div class="space-y-4 text-xs md:text-sm">
+                    <div class="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center">
+                        <div>
+                            <p>學生姓名：<span id="resName" class="text-green-400 font-bold"></span></p>
+                            <p>所屬班別：<span id="resClass" class="text-green-400 font-bold"></span></p>
+                        </div>
+                        <div class="text-right">
+                            <p>對戰勝負：<span id="resOutcome" class="font-bold text-base"></span></p>
+                        </div>
+                    </div>
+
+                    <!-- 統計數據卡片 -->
+                    <div class="grid grid-cols-4 gap-2 text-center">
+                        <div class="bg-gray-800 p-2 rounded border border-gray-700">
+                            <p class="text-[10px] text-gray-400">總答題數</p>
+                            <p id="statTotal" class="text-base font-bold text-white">0</p>
+                        </div>
+                        <div class="bg-gray-800 p-2 rounded border border-gray-700">
+                            <p class="text-[10px] text-gray-400">答對數</p>
+                            <p id="statCorrect" class="text-base font-bold text-green-400">0</p>
+                        </div>
+                        <div class="bg-gray-800 p-2 rounded border border-gray-700">
+                            <p class="text-[10px] text-gray-400">答錯數</p>
+                            <p id="statWrong" class="text-base font-bold text-red-400">0</p>
+                        </div>
+                        <div class="bg-gray-800 p-2 rounded border border-gray-700">
+                            <p class="text-[10px] text-gray-400">正確率</p>
+                            <p id="statRate" class="text-base font-bold text-yellow-400">0%</p>
+                        </div>
+                    </div>
+
+                    <!-- 答錯題目對照清單 -->
+                    <div>
+                        <h4 class="font-bold text-yellow-300 mb-2 border-b border-gray-700 pb-1">❌ 錯題列表記錄：</h4>
+                        <div id="wrongList" class="max-h-40 overflow-y-auto space-y-2 pr-1">
+                            <!-- 動態填入錯題 -->
+                        </div>
+                    </div>
+
+                    <!-- 學生薄弱類型歸納分析 -->
+                    <div class="bg-slate-800 p-3 rounded border border-blue-500">
+                        <h4 class="font-bold text-blue-300 mb-1">💡 學習診斷與薄弱分析：</h4>
+                        <p id="analysisText" class="text-xs text-gray-200 leading-relaxed"></p>
+                    </div>
+
+                    <!-- Sheets 寫入狀態指示 -->
+                    <div class="text-center text-[11px] text-gray-400 italic" id="syncStatus">
+                        正在同步資料至 Google Sheets...
+                    </div>
+
+                    <div class="pt-2">
+                        <button onclick="location.reload()" class="nes-btn is-primary w-full py-2 font-bold">🔄 重新挑戰</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 六、後台驗證與資料下載 Modal (點擊小鈴鐺驗證) -->
+        <div id="adminModal" class="hidden absolute inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center p-4">
+            <div class="nes-container is-dark border-4 border-red-500 max-w-2xl w-full bg-gray-900 my-6 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                    <h3 class="text-base font-bold text-red-400 flex items-center">🔒 後台管理與資料匯出系統</h3>
+                    <button onclick="closeAdminModal()" class="text-gray-400 hover:text-white text-lg">✕</button>
+                </div>
+
+                <!-- 密碼驗證區 (未解鎖時顯示) -->
+                <div id="adminAuthBox" class="space-y-4">
+                    <p class="text-xs text-gray-300">本區域僅供教師/管理者存取，請輸入授權密碼以解鎖進階功能：</p>
+                    <div>
+                        <input type="password" id="adminPassword" placeholder="輸入解鎖密碼" class="nes-input is-dark w-full text-sm">
+                    </div>
+                    <button onclick="verifyAdminPassword()" class="nes-btn is-error w-full text-xs font-bold">解鎖後台</button>
+                </div>
+
+                <!-- 後台核心內容 (解鎖後顯示) -->
+                <div id="adminContentBox" class="hidden space-y-4 text-xs">
+                    <div class="bg-green-900 bg-opacity-40 border border-green-500 p-2 rounded text-green-300">
+                        ✅ 驗證成功！管理者權限已啟用。
+                    </div>
+
+                    <!-- 全部5題完整題目內容清單 -->
+                    <div class="space-y-2">
+                        <h4 class="font-bold text-yellow-300">📚 系統 5 條問答完整內容記錄：</h4>
+                        <div id="fullQuestionsList" class="bg-gray-800 p-2 rounded max-h-36 overflow-y-auto space-y-2 text-[11px]">
+                            <!-- 程式動態填入 -->
+                        </div>
+                    </div>
+
+                    <!-- 本場完整答題詳細記錄 table -->
+                    <div>
+                        <h4 class="font-bold text-yellow-300 mb-1">📊 當前對戰答題紀錄數據：</h4>
+                        <div class="overflow-x-auto bg-gray-800 rounded p-1 border border-gray-700">
+                            <table class="w-full text-left border-collapse text-[10px]">
+                                <thead>
+                                    <tr class="border-b border-gray-600 text-yellow-400">
+                                        <th class="p-1">題號</th>
+                                        <th class="p-1">學生答案</th>
+                                        <th class="p-1">正確答案</th>
+                                        <th class="p-1">結果</th>
+                                        <th class="p-1">知識層面分析</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminRecordsTable">
+                                    <tr><td colspan="5" class="p-2 text-center text-gray-400">尚無對戰數據</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 下載/匯出功能 -->
+                    <div class="bg-gray-800 p-3 rounded border border-gray-700 space-y-2">
+                        <h4 class="font-bold text-yellow-300">📥 數據匯出功能：</h4>
+                        <button onclick="exportToCSV()" class="nes-btn is-success w-full text-xs">📄 下載 Excel / CSV 本地記錄檔</button>
+                    </div>
+
+                    <!-- Google Apps Script 部署範例代碼 -->
+                    <div class="space-y-1">
+                        <h4 class="font-bold text-yellow-300">⚙️ Google Apps Script (GAS) 代碼範例：</h4>
+                        <p class="text-[10px] text-gray-400">請複製以下代碼貼入 Google 試算表 Apps Script 編輯器中並部署為 Web App：</p>
+                        <pre class="bg-black p-2 rounded text-[10px] text-green-400 overflow-x-auto border border-gray-800 select-all font-mono">
+function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var data = JSON.parse(e.postData.contents);
+    
+    // 若工作表為空則建立表頭
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        "時間戳記", "班別", "學生姓名", "題目ID", "題目內容", 
+        "學生答案", "正確答案", "是否正確", "知識層面/薄弱原因"
+      ]);
+    }
+    
+    // 遍歷紀錄寫入
+    if (data.records && data.records.length > 0) {
+      data.records.forEach(function(r) {
+        sheet.appendRow([
+          new Date(), data.studentClass, data.studentName,
+          r.questionId, r.questionText, r.userAnswer,
+          r.correctAnswer, r.isCorrect ? "正確" : "錯誤", r.knowledgeTag
+        ]);
+      });
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({"result": "success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({"result": "error", "error": err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 頁尾說明 Footer -->
+    <footer class="bg-slate-900 border-t border-gray-800 p-2 text-center text-[10px] text-gray-500">
+        Pokémon API Powered | 經典復古像素風寶可夢戰鬥教學 App
+    </footer>
+
+    <!-- JavaScript 邏輯引擎 -->
+    <script>
+        // ==========================================
+        // 四、硬性約束：指定 5 道題目內容資料庫
+        // ==========================================
+        const QUESTIONS = [
+            {
+                id: 1,
+                question: "春節的時候，我們通常會吃什麼？",
+                options: ["A. 月餅", "B. 粽子", "C. 年糕"],
+                answer: "C",
+                answerFull: "C. 年糕",
+                tag: "春節傳統習俗飲食"
+            },
+            {
+                id: 2,
+                question: "中秋節的晚上，大家會一起吃什麼？",
+                options: ["A. 湯圓", "B. 月餅", "C. 長壽麵"],
+                answer: "B",
+                answerFull: "B. 月餅",
+                tag: "中秋節節慶食品"
+            },
+            {
+                id: 3,
+                question: "端午節的時候，人們會吃什麼特別的食物？",
+                options: ["A. 粽子", "B. 年糕", "C. 蘋果"],
+                answer: "A",
+                answerFull: "A. 粽子",
+                tag: "端午節特定食物"
+            },
+            {
+                id: 4,
+                question: "元宵節的時候，街上會掛什麼？",
+                options: ["A. 燈籠", "B. 風箏", "C. 雨傘"],
+                answer: "A",
+                answerFull: "A. 燈籠",
+                tag: "元宵節應景裝飾"
+            },
+            {
+                id: 5,
+                question: "哪個節日會划龍舟比賽？",
+                options: ["A. 春節", "B. 中秋節", "C. 端午節"],
+                answer: "C",
+                answerFull: "C. 端午節",
+                tag: "端午節民俗活動"
+            }
+        ];
+
+        // 寶可夢對戰預設隊伍 (PokéAPI ID)
+        // 玩家：皮卡丘(25), 噴火龍(6), 傑尼龜(7), 妙蛙種子(1)
+        // 敵方：超夢(150), 耿鬼(94), 暴鯉龍(130), 路卡利歐(448)
+        const PLAYER_POKEMON_IDS = [25, 6, 7, 1];
+        const ENEMY_POKEMON_IDS = [150, 94, 130, 448];
+
+        // 遊戲狀態變數
+        let studentName = "";
+        let studentClass = "";
+        
+        let playerTeam = [];
+        let enemyTeam = [];
+        let playerIndex = 0;
+        let enemyIndex = 0;
+
+        let currentQuestionIndex = 0;
+        let selectedMoveIndex = 0;
+        let isBattleOver = false;
+        let isTurnBusy = false;
+
+        // 全域作答記錄模組
+        let quizLogs = []; // { questionId, questionText, userAnswer, correctAnswer, isCorrect, knowledgeTag }
+        let isAdminUnlocked = false;
+
+        // =========================================================================
+        // 🎯【步驟一：將部署好的 Google Apps Script 網址填在此處】
+        // =========================================================================
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzpERL-ZKirOOHJ8KIobNvT78q3yGBqVZVUhY6vAqpNNVxVm2meBF6COd5GeCkrly0UGQ/exec";
+        // =========================================================================
+
+        // DOM 載入時初始化
+        window.onload = function() {
+            renderFullQuestionsList();
+        };
+
+        // ==========================================
+        // 一、登入處理 logic
+        // ==========================================
+        async function handleStartGame(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById("inputName").value.trim();
+            const classInput = document.getElementById("inputClass").value.trim();
+
+            if (!nameInput || !classInput) {
+                alert("請完整填寫學生姓名與班別！");
+                return;
+            }
+
+            studentName = nameInput;
+            studentClass = classInput;
+
+            document.getElementById("displayName").innerText = studentName;
+            document.getElementById("displayClass").innerText = studentClass;
+            document.getElementById("playerBadge").classList.remove("hidden");
+            
+            // 隱藏登入畫面
+            document.getElementById("loginScreen").classList.add("hidden");
+
+            // 載入寶可夢資料並初始化戰鬥
+            await initBattle();
+        }
+
+        // ==========================================
+        // 二、寶可夢對戰與 PokéAPI Fetching
+        // ==========================================
+        async function fetchPokemonData(id) {
+            try {
+                const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+                const data = await res.json();
+                
+                // Gen 5 動態 GIF 精靈圖 (Showdown sprites)
+                const frontGif = data.sprites.other.showdown.front_default || data.sprites.front_default;
+                const backGif = data.sprites.other.showdown.back_default || frontGif;
+
+                // 屬性與能力值
+                const types = data.types.map(t => t.type.name);
+                const hp = data.stats.find(s => s.stat.name === 'hp').base_stat * 3; // 放大血量增加娛樂性
+                const attack = data.stats.find(s => s.stat.name === 'attack').base_stat;
+                const defense = data.stats.find(s => s.stat.name === 'defense').base_stat;
+
+                // 抓取 4 個招式名稱
+                const moves = data.moves.slice(0, 4).map((m, idx) => {
+                    const moveNames = ['十萬伏特', '火焰噴射', '水炮', '日光束', '影子球', '龍之波動', '近身戰', '精神強念'];
+                    return {
+                        name: m.move.name.toUpperCase(),
+                        zhName: moveNames[idx % moveNames.length],
+                        power: Math.floor(Math.random() * 20) + 30
+                    };
+                });
+
+                return {
+                    id: data.id,
+                    name: data.name.toUpperCase(),
+                    zhName: getPokemonChineseName(data.id),
+                    types: types,
+                    maxHp: hp,
+                    currentHp: hp,
+                    attack: attack,
+                    defense: defense,
+                    frontSprite: frontGif,
+                    backSprite: backGif,
+                    moves: moves
+                };
+            } catch (err) {
+                console.error("API 載入失敗，使用備份資料", err);
+                return {
+                    id: id,
+                    name: "POKEMON",
+                    zhName: getPokemonChineseName(id),
+                    types: ["normal"],
+                    maxHp: 100,
+                    currentHp: 100,
+                    attack: 50,
+                    defense: 50,
+                    frontSprite: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
+                    backSprite: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${id}.png`,
+                    moves: [
+                        { name: "ATTACK-1", zhName: "撞擊", power: 30 },
+                        { name: "ATTACK-2", zhName: "電光一閃", power: 35 },
+                        { name: "ATTACK-3", zhName: "高速星星", power: 40 },
+                        { name: "ATTACK-4", zhName: "破壞光線", power: 50 }
+                    ]
+                };
+            }
+        }
+
+        function getPokemonChineseName(id) {
+            const names = {
+                25: "皮卡丘", 6: "噴火龍", 7: "傑尼龜", 1: "妙蛙種子",
+                150: "超夢", 94: "耿鬼", 130: "暴鯉龍", 448: "路卡利歐"
+            };
+            return names[id] || `寶可夢 #${id}`;
+        }
+
+        async function initBattle() {
+            typeWriterText("正在搜尋野生寶可夢與對手數據...");
+
+            // 載入雙方隊伍
+            playerTeam = await Promise.all(PLAYER_POKEMON_IDS.map(id => fetchPokemonData(id)));
+            enemyTeam = await Promise.all(ENEMY_POKEMON_IDS.map(id => fetchPokemonData(id)));
+
+            playerIndex = 0;
+            enemyIndex = 0;
+            isBattleOver = false;
+
+            updateUI();
+            autoSetBgByAttribute();
+
+            typeWriterText(`對手派出了 ${enemyTeam[enemyIndex].zhName}！就決定是你了，${playerTeam[playerIndex].zhName}！`);
+            enableMoveButtons(true);
+        }
+
+        // 切換背景
+        function setBg(bgClass) {
+            const stage = document.getElementById("battleStage");
+            stage.className = `relative flex-grow min-h-[340px] flex flex-col justify-between p-4 md:p-6 transition-all duration-500 overflow-hidden ${bgClass}`;
+        }
+
+        // 自動根據出戰寶可夢屬性切換背景
+        function autoSetBgByAttribute() {
+            const playerType = playerTeam[playerIndex].types[0] || 'normal';
+            if (['grass', 'bug', 'poison'].includes(playerType)) {
+                setBg('bg-forest');
+            } else if (['fire', 'ground', 'rock', 'fighting'].includes(playerType)) {
+                setBg('bg-mountain');
+            } else {
+                setBg('bg-city');
+            }
+        }
+
+        // 打字機效果顯示對話
+        function typeWriterText(text, callback) {
+            const box = document.getElementById("dialogText");
+            box.innerText = "";
+            let i = 0;
+            const timer = setInterval(() => {
+                if (i < text.length) {
+                    box.innerText += text.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(timer);
+                    if (callback) callback();
+                }
+            }, 30);
+        }
+
+        // 更新 UI 畫面狀態
+        function updateUI() {
+            const player = playerTeam[playerIndex];
+            const enemy = enemyTeam[enemyIndex];
+
+            // 敵方 UI
+            document.getElementById("enemyName").innerText = enemy.zhName;
+            document.getElementById("enemyTypes").innerText = enemy.types.join('/').toUpperCase();
+            document.getElementById("enemySprite").src = enemy.frontSprite;
+            updateHpBar("enemyHpBar", "enemyHpNum", enemy.currentHp, enemy.maxHp);
+
+            // 我方 UI
+            document.getElementById("playerName").innerText = player.zhName;
+            document.getElementById("playerTypes").innerText = player.types.join('/').toUpperCase();
+            document.getElementById("playerSprite").src = player.backSprite;
+            updateHpBar("playerHpBar", "playerHpNum", player.currentHp, player.maxHp);
+
+            // 更新技能按鈕
+            player.moves.forEach((m, idx) => {
+                const btn = document.getElementById(`moveBtn${idx}`);
+                btn.innerText = `${m.zhName}`;
+            });
+
+            // 更新精靈球顯示
+            renderBalls("playerBalls", playerTeam);
+            renderBalls("enemyBalls", enemyTeam);
+        }
+
+        // 動態血條與顏色變化
+        function updateHpBar(barId, numId, current, max) {
+            const pct = Math.max(0, Math.min(100, (current / max) * 100));
+            const bar = document.getElementById(barId);
+            const num = document.getElementById(numId);
+
+            bar.style.width = `${pct}%`;
+            num.innerText = `${Math.max(0, current)}/${max}`;
+
+            // 血量顏色切換：綠 -> 黃 -> 紅
+            if (pct > 50) {
+                bar.className = "bg-green-500 h-full hp-bar-transition";
+            } else if (pct > 20) {
+                bar.className = "bg-yellow-400 h-full hp-bar-transition";
+            } else {
+                bar.className = "bg-red-600 h-full hp-bar-transition";
+            }
+        }
+
+        // 渲染精靈球隊伍狀態
+        function renderBalls(containerId, team) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = "";
+            team.forEach(p => {
+                const ball = document.createElement("span");
+                ball.className = "text-xs";
+                ball.innerText = p.currentHp > 0 ? "🔴" : "⚪";
+                container.appendChild(ball);
+            });
+        }
+
+        function enableMoveButtons(enabled) {
+            for (let i = 0; i < 4; i++) {
+                document.getElementById(`moveBtn${i}`).disabled = !enabled;
+            }
+        }
+
+        // ==========================================
+        // 三、答題對戰機制 (選擇技能 -> 彈窗答題)
+        // ==========================================
+        function selectMove(moveIndex) {
+            if (isTurnBusy || isBattleOver) return;
+
+            selectedMoveIndex = moveIndex;
+            enableMoveButtons(false);
+
+            // 輪流選取 5 道題目
+            const q = QUESTIONS[currentQuestionIndex % QUESTIONS.length];
+            showQuizModal(q);
+        }
+
+        function showQuizModal(q) {
+            const modal = document.getElementById("quizModal");
+            document.getElementById("quizMoveName").innerText = `招式: ${playerTeam[playerIndex].moves[selectedMoveIndex].zhName}`;
+            document.getElementById("quizQuestion").innerText = `Q${currentQuestionIndex + 1}. ${q.question}`;
+
+            const optionsContainer = document.getElementById("quizOptions");
+            optionsContainer.innerHTML = "";
+
+            q.options.forEach(opt => {
+                const btn = document.createElement("button");
+                btn.className = "nes-btn is-primary w-full text-left text-xs md:text-sm py-2 px-3 hover:bg-blue-600";
+                btn.innerText = opt;
+                btn.onclick = () => processAnswer(opt.charAt(0), q);
+                optionsContainer.appendChild(btn);
+            });
+
+            modal.classList.remove("hidden");
+        }
+
+        function processAnswer(selectedOptionLetter, questionObj) {
+            document.getElementById("quizModal").classList.add("hidden");
+
+            const isCorrect = (selectedOptionLetter === questionObj.answer);
+            
+            // 記錄作答數據
+            quizLogs.push({
+                questionId: questionObj.id,
+                questionText: questionObj.question,
+                userAnswer: selectedOptionLetter,
+                correctAnswer: questionObj.answer,
+                isCorrect: isCorrect,
+                knowledgeTag: questionObj.tag
+            });
+
+            currentQuestionIndex++;
+            isTurnBusy = true;
+
+            if (isCorrect) {
+                typeWriterText(`答對了！題目解答正確！${playerTeam[playerIndex].zhName} 發動了 ${playerTeam[playerIndex].moves[selectedMoveIndex].zhName}！`, () => {
+                    executePlayerAttack();
+                });
+            } else {
+                typeWriterText(`答錯了！回答錯誤本回合無法攻擊！輪到敵方發動攻擊！`, () => {
+                    setTimeout(() => {
+                        executeEnemyTurn();
+                    }, 1200);
+                });
+            }
+        }
+
+        // 我方發動攻擊
+        function executePlayerAttack() {
+            const attacker = playerTeam[playerIndex];
+            const defender = enemyTeam[enemyIndex];
+            const move = attacker.moves[selectedMoveIndex];
+
+            // 播放攻擊與特效
+            const playerImg = document.getElementById("playerSprite");
+            const enemyImg = document.getElementById("enemySprite");
+
+            playerImg.classList.add("animate-attack-player");
+            spawnParticles(attacker.types[0]);
+
+            setTimeout(() => {
+                playerImg.classList.remove("animate-attack-player");
+                enemyImg.classList.add("animate-shake", "animate-flash");
+
+                // 計算傷害
+                const damage = Math.floor((attacker.attack / defender.defense) * move.power) + 15;
+                defender.currentHp -= damage;
+                updateHpBar("enemyHpBar", "enemyHpNum", defender.currentHp, defender.maxHp);
+
+                setTimeout(() => {
+                    enemyImg.classList.remove("animate-shake", "animate-flash");
+
+                    if (defender.currentHp <= 0) {
+                        defender.currentHp = 0;
+                        updateHpBar("enemyHpBar", "enemyHpNum", 0, defender.maxHp);
+                        typeWriterText(`敵方的 ${defender.zhName} 倒下了！`, () => {
+                            enemyIndex++;
+                            renderBalls("enemyBalls", enemyTeam);
+                            if (enemyIndex >= enemyTeam.length) {
+                                // 遊戲勝利
+                                handleGameOver(true);
+                            } else {
+                                autoSetBgByAttribute();
+                                updateUI();
+                                typeWriterText(`對手換上了 ${enemyTeam[enemyIndex].zhName}！`, () => {
+                                    isTurnBusy = false;
+                                    enableMoveButtons(true);
+                                });
+                            }
+                        });
+                    } else {
+                        // 輪到敵方回合
+                        executeEnemyTurn();
+                    }
+                }, 800);
+            }, 400);
+        }
+
+        // 敵方回合行動
+        function executeEnemyTurn() {
+            const attacker = enemyTeam[enemyIndex];
+            const defender = playerTeam[playerIndex];
+            const randMove = attacker.moves[Math.floor(Math.random() * attacker.moves.length)];
+
+            typeWriterText(`敵方的 ${attacker.zhName} 發動了 ${randMove.zhName}！`, () => {
+                const enemyImg = document.getElementById("enemySprite");
+                const playerImg = document.getElementById("playerSprite");
+
+                enemyImg.classList.add("animate-attack-enemy");
+                spawnParticles(attacker.types[0]);
+
+                setTimeout(() => {
+                    enemyImg.classList.remove("animate-attack-enemy");
+                    playerImg.classList.add("animate-shake", "animate-flash");
+
+                    const damage = Math.floor((attacker.attack / defender.defense) * randMove.power) + 10;
+                    defender.currentHp -= damage;
+                    updateHpBar("playerHpBar", "playerHpNum", defender.currentHp, defender.maxHp);
+
+                    setTimeout(() => {
+                        playerImg.classList.remove("animate-shake", "animate-flash");
+
+                        if (defender.currentHp <= 0) {
+                            defender.currentHp = 0;
+                            updateHpBar("playerHpBar", "playerHpNum", 0, defender.maxHp);
+                            typeWriterText(`你的 ${defender.zhName} 倒下了！`, () => {
+                                playerIndex++;
+                                renderBalls("playerBalls", playerTeam);
+                                if (playerIndex >= playerTeam.length) {
+                                    // 遊戲失敗
+                                    handleGameOver(false);
+                                } else {
+                                    autoSetBgByAttribute();
+                                    updateUI();
+                                    typeWriterText(`出來吧！${playerTeam[playerIndex].zhName}！`, () => {
+                                        isTurnBusy = false;
+                                        enableMoveButtons(true);
+                                    });
+                                }
+                            });
+                        } else {
+                            typeWriterText(`請選擇下一個發動的招式：`, () => {
+                                isTurnBusy = false;
+                                enableMoveButtons(true);
+                            });
+                        }
+                    }, 800);
+                }, 400);
+            });
+        }
+
+        // 屬性粒子特效 (火, 水, 草, 電, 預設)
+        function spawnParticles(type) {
+            const container = document.getElementById("particleLayer");
+            const colorMap = {
+                fire: '#f97316',
+                water: '#3b82f6',
+                grass: '#22c55e',
+                electric: '#eab308'
+            };
+            const color = colorMap[type] || '#a855f7';
+
+            for (let i = 0; i < 15; i++) {
+                const p = document.createElement("div");
+                p.className = "particle";
+                p.style.backgroundColor = color;
+                p.style.width = `${Math.random() * 12 + 6}px`;
+                p.style.height = p.style.width;
+                p.style.left = '50%';
+                p.style.top = '50%';
+                p.style.setProperty('--tw-translate-x', `${(Math.random() - 0.5) * 200}px`);
+                p.style.setProperty('--tw-translate-y', `${(Math.random() - 0.5) * 200}px`);
+                container.appendChild(p);
+
+                setTimeout(() => p.remove(), 600);
+            }
+        }
+
+        // ==========================================
+        // 五、遊戲結束與統計分析面板
+        // ==========================================
+        function handleGameOver(isWin) {
+            isBattleOver = true;
+            enableMoveButtons(false);
+
+            const outcomeText = isWin ? "🎉 恭喜！戰鬥勝利！" : "💥 戰鬥失敗！再接再厲！";
+            typeWriterText(`戰鬥結束！${outcomeText}`, () => {
+                setTimeout(() => {
+                    showResultModal(isWin);
+                }, 1000);
+            });
+        }
+
+        function showResultModal(isWin) {
+            const modal = document.getElementById("resultModal");
+            document.getElementById("resName").innerText = studentName;
+            document.getElementById("resClass").innerText = studentClass;
+            
+            const outcomeElem = document.getElementById("resOutcome");
+            outcomeElem.innerText = isWin ? "勝利 (VICTORY)" : "戰敗 (DEFEAT)";
+            outcomeElem.className = isWin ? "font-bold text-base text-green-400" : "font-bold text-base text-red-500";
+
+            // 統計計算
+            const total = quizLogs.length;
+            const correct = quizLogs.filter(q => q.isCorrect).length;
+            const wrong = total - correct;
+            const rate = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+            document.getElementById("statTotal").innerText = total;
+            document.getElementById("statCorrect").innerText = correct;
+            document.getElementById("statWrong").innerText = wrong;
+            document.getElementById("statRate").innerText = `${rate}%`;
+
+            // 渲染錯題清單
+            const wrongList = document.getElementById("wrongList");
+            wrongList.innerHTML = "";
+            const wrongLogs = quizLogs.filter(q => !q.isCorrect);
+
+            if (wrongLogs.length === 0) {
+                wrongList.innerHTML = `<p class="text-green-400 text-xs">✨太棒了！本場作答完全正確，沒有錯題！</p>`;
+            } else {
+                wrongLogs.forEach((item, idx) => {
+                    const div = document.createElement("div");
+                    div.className = "bg-gray-800 border border-red-500 p-2 rounded text-[11px]";
+                    div.innerHTML = `
+                        <p class="text-white font-bold">${idx + 1}. ${item.questionText}</p>
+                        <p class="text-red-400">你的答案：${item.userAnswer}</p>
+                        <p class="text-green-400">正確答案：${item.correctAnswer}</p>
+                    `;
+                    wrongList.appendChild(div);
+                });
+            }
+
+            // 歸納薄弱類型分析
+            const analysisText = document.getElementById("analysisText");
+            if (wrongLogs.length === 0) {
+                analysisText.innerText = "學生對傳統節日（春節、端午、中秋、元宵）之習俗與飲食認知相當紮實，表現優秀！";
+            } else {
+                const weakTags = [...new Set(wrongLogs.map(w => w.knowledgeTag))];
+                analysisText.innerText = `經過診斷，學生在【${weakTags.join("、")}】概念上較為薄弱，建議後續加強相關節日文化與傳統民俗飲食之認知復習。`;
+            }
+
+            modal.classList.remove("hidden");
+
+            // 同步寫入 Google Sheets
+            postToGoogleSheets();
+        }
+
+        // 將數據 POST 至 Google Sheets (Apps Script)
+        function postToGoogleSheets() {
+            const syncStatus = document.getElementById("syncStatus");
+            syncStatus.innerText = "⏳ 正在同步對戰紀錄至 Google Sheets...";
+
+            const payload = {
+                studentName: studentName,
+                studentClass: studentClass,
+                records: quizLogs
+            };
+
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors", // 跨域提交
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                syncStatus.innerText = "✅ 數據已成功寫入雲端紀錄表 (Google Sheets)！";
+                syncStatus.className = "text-center text-[11px] text-green-400 font-bold";
+            }).catch(err => {
+                console.error("Sheets 同步錯誤:", err);
+                syncStatus.innerText = "⚠️ 寫入雲端失敗 (請確認 GAS 連結部署或本地測試)";
+                syncStatus.className = "text-center text-[11px] text-red-400";
+            });
+        }
+
+        // ==========================================
+        // 六、保密小鈴鐺與管理者後台 logic
+        // ==========================================
+        document.getElementById("adminBellBtn").onclick = function() {
+            document.getElementById("adminModal").classList.remove("hidden");
+            if (isAdminUnlocked) {
+                renderAdminRecordsTable();
+            }
+        };
+
+        function closeAdminModal() {
+            document.getElementById("adminModal").classList.add("hidden");
+        }
+
+        function verifyAdminPassword() {
+            const pwd = document.getElementById("adminPassword").value.trim();
+            if (pwd === "LKM") {
+                isAdminUnlocked = true;
+                document.getElementById("adminAuthBox").classList.add("hidden");
+                document.getElementById("adminContentBox").classList.remove("hidden");
+                document.getElementById("adminPassword").value = "";
+                renderAdminRecordsTable();
+            } else {
+                alert("密碼錯誤！無法解鎖管理員功能。");
+            }
+        }
+
+        // 渲染完整 5 條題目內容至後台
+        function renderFullQuestionsList() {
+            const container = document.getElementById("fullQuestionsList");
+            container.innerHTML = "";
+            QUESTIONS.forEach((q, index) => {
+                const item = document.createElement("div");
+                item.className = "border-b border-gray-700 pb-1";
+                item.innerHTML = `
+                    <p class="text-white font-bold">${index + 1}. ${q.question}</p>
+                    <p class="text-gray-400">選項: ${q.options.join(" | ")}</p>
+                    <p class="text-yellow-400">標準答案: ${q.answerFull} (${q.tag})</p>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // 渲染學生答題記錄表格
+        function renderAdminRecordsTable() {
+            const tbody = document.getElementById("adminRecordsTable");
+            tbody.innerHTML = "";
+
+            if (quizLogs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-2 text-center text-gray-400">當前尚未進行任何答題對戰</td></tr>`;
+                return;
+            }
+
+            quizLogs.forEach(log => {
+                const tr = document.createElement("tr");
+                tr.className = "border-b border-gray-700 hover:bg-gray-700";
+                tr.innerHTML = `
+                    <td class="p-1">Q${log.questionId}</td>
+                    <td class="p-1 text-yellow-300 font-bold">${log.userAnswer}</td>
+                    <td class="p-1 text-green-300">${log.correctAnswer}</td>
+                    <td class="p-1 ${log.isCorrect ? 'text-green-400' : 'text-red-400'}">${log.isCorrect ? '✓ 正確' : '✗ 錯誤'}</td>
+                    <td class="p-1 text-gray-300">${log.knowledgeTag}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // CSV 數據本地匯出功能
+        function exportToCSV() {
+            if (quizLogs.length === 0) {
+                alert("尚無可匯出的對戰紀錄數據！");
+                return;
+            }
+
+            let csvContent = "\uFEFF"; // UTF-8 BOM
+            csvContent += "學生班別,學生姓名,題目ID,題目內容,學生答案,正確答案,是否正確,知識屬性\n";
+
+            quizLogs.forEach(log => {
+                const safeQText = `"${log.questionText.replace(/"/g, '""')}"`;
+                csvContent += `${studentClass},${studentName},${log.questionId},${safeQText},${log.userAnswer},${log.correctAnswer},${log.isCorrect ? '正確' : '錯誤'},${log.knowledgeTag}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `Pokémon_Battle_Quiz_${studentClass}_${studentName}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
