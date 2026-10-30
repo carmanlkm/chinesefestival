@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>寶可夢問答對戰遊戲</title>
+    <title>Pokémon寶可夢之中國節日對戰問答</title>
     <!-- Tailwind CSS for Layout -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- NES.css for Retro Pixel UI components -->
@@ -122,11 +122,13 @@
     <header class="bg-slate-800 border-b-4 border-yellow-500 p-3 px-4 flex justify-between items-center shadow-lg relative z-20">
         <div class="flex items-center space-x-2">
             <span class="text-2xl">⚡</span>
-            <h1 class="text-lg md:text-xl font-bold tracking-wider text-yellow-400">Pokémon 寶可夢對戰問答</h1>
+            <h1 class="text-lg md:text-xl font-bold tracking-wider text-yellow-400">Pokémon寶可夢之中國節日對戰問答</h1>
         </div>
         <div class="flex items-center space-x-4">
             <div id="playerBadge" class="hidden text-xs md:text-sm bg-slate-700 px-3 py-1 rounded border border-gray-600">
-                👤 <span id="displayClass" class="text-green-400 font-bold"></span> | <span id="displayName" class="text-yellow-300 font-bold"></span>
+                👤 <span id="displayClass" class="text-green-400 font-bold"></span> 
+                (<span id="displaySeat" class="text-blue-400 font-bold"></span>號) | 
+                <span id="displayName" class="text-yellow-300 font-bold"></span>
             </div>
             <!-- 保密功能：閃爍小鈴鐺 -->
             <button id="adminBellBtn" title="教師後台管理" class="focus:outline-none hover:scale-110 transition-transform">
@@ -145,9 +147,15 @@
                 <p class="text-sm text-gray-300 mb-6">歡迎進入寶可夢問答大賽！請先輸入您的學生身分資訊以開始對戰。</p>
                 
                 <form id="loginForm" onsubmit="handleStartGame(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs text-yellow-300 mb-1">班別 (Class):</label>
-                        <input type="text" id="inputClass" required placeholder="例如: 5A, 6B" class="nes-input is-dark w-full text-sm">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-yellow-300 mb-1">班別 (Class):</label>
+                            <input type="text" id="inputClass" required placeholder="例如: 5A" class="nes-input is-dark w-full text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-yellow-300 mb-1">學號 (Seat No.):</label>
+                            <input type="number" id="inputSeat" required placeholder="例如: 12" min="1" max="50" class="nes-input is-dark w-full text-sm">
+                        </div>
                     </div>
                     <div>
                         <label class="block text-xs text-yellow-300 mb-1">學生姓名 (Name):</label>
@@ -255,7 +263,13 @@
             <div class="nes-container is-dark border-4 border-yellow-400 max-w-lg w-full bg-gray-900">
                 <div class="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
                     <span class="text-xs text-yellow-400 font-bold">🎯 文化知識考核 - 回答以發動招式</span>
-                    <span id="quizMoveName" class="text-xs bg-red-600 px-2 py-0.5 rounded text-white font-bold"></span>
+                    <div class="flex items-center space-x-2">
+                        <!-- 粵語發聲朗讀按鈕 -->
+                        <button onclick="speakCurrentQuestion()" class="nes-btn is-warning text-[10px] py-0.5 px-2 flex items-center gap-1" title="收聽粵語發音">
+                            🔊 朗讀
+                        </button>
+                        <span id="quizMoveName" class="text-xs bg-red-600 px-2 py-0.5 rounded text-white font-bold"></span>
+                    </div>
                 </div>
                 <h3 id="quizQuestion" class="text-sm md:text-base font-bold text-white mb-4 leading-normal"></h3>
                 
@@ -273,8 +287,8 @@
                 <div class="space-y-4 text-xs md:text-sm">
                     <div class="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center">
                         <div>
-                            <p>學生姓名：<span id="resName" class="text-green-400 font-bold"></span></p>
-                            <p>所屬班別：<span id="resClass" class="text-green-400 font-bold"></span></p>
+                            <p>班別：<span id="resClass" class="text-green-400 font-bold"></span> | 學號：<span id="resSeat" class="text-blue-400 font-bold"></span></p>
+                            <p>學生姓名：<span id="resName" class="text-yellow-300 font-bold"></span></p>
                         </div>
                         <div class="text-right">
                             <p>對戰勝負：<span id="resOutcome" class="font-bold text-base"></span></p>
@@ -303,7 +317,7 @@
 
                     <!-- 答錯題目對照清單 -->
                     <div>
-                        <h4 class="font-bold text-yellow-300 mb-2 border-b border-gray-700 pb-1">❌ 錯題列表記錄：</h4>
+                        <h4 class="font-bold text-yellow-300 mb-2 border-b border-gray-700 pb-1">❌ 錯題與知識點診斷清單：</h4>
                         <div id="wrongList" class="max-h-40 overflow-y-auto space-y-2 pr-1">
                             <!-- 動態填入錯題 -->
                         </div>
@@ -370,10 +384,11 @@
                                         <th class="p-1">正確答案</th>
                                         <th class="p-1">結果</th>
                                         <th class="p-1">知識層面分析</th>
+                                        <th class="p-1">答錯原因分析</th>
                                     </tr>
                                 </thead>
                                 <tbody id="adminRecordsTable">
-                                    <tr><td colspan="5" class="p-2 text-center text-gray-400">尚無對戰數據</td></tr>
+                                    <tr><td colspan="6" class="p-2 text-center text-gray-400">尚無對戰數據</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -385,31 +400,40 @@
                         <button onclick="exportToCSV()" class="nes-btn is-success w-full text-xs">📄 下載 Excel / CSV 本地記錄檔</button>
                     </div>
 
-                    <!-- Google Apps Script 部署範例代碼 -->
+                    <!-- Google Apps Script 部署範例代碼 (最新含學號與答錯原因版) -->
                     <div class="space-y-1">
-                        <h4 class="font-bold text-yellow-300">⚙️ Google Apps Script (GAS) 代碼範例：</h4>
-                        <p class="text-[10px] text-gray-400">請複製以下代碼貼入 Google 試算表 Apps Script 編輯器中並部署為 Web App：</p>
+                        <h4 class="font-bold text-yellow-300">⚙️ Google Apps Script (GAS) 最新代碼：</h4>
+                        <p class="text-[10px] text-gray-400">請將以下 JavaScript 代碼複製並覆蓋 Google 試算表中的 `doPost` 函式：</p>
                         <pre class="bg-black p-2 rounded text-[10px] text-green-400 overflow-x-auto border border-gray-800 select-all font-mono">
 function doPost(e) {
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     var data = JSON.parse(e.postData.contents);
     
-    // 若工作表為空則建立表頭
+    // 若工作表為空，自動建立表頭
     if (sheet.getLastRow() === 0) {
       sheet.appendRow([
-        "時間戳記", "班別", "學生姓名", "題目ID", "題目內容", 
-        "學生答案", "正確答案", "是否正確", "知識層面/薄弱原因"
+        "時間戳記", "班別", "學號", "學生姓名", "題目ID", 
+        "題目內容", "學生答案", "正確答案", "作答結果", 
+        "知識層面", "答錯原因/診斷分析"
       ]);
     }
     
-    // 遍歷紀錄寫入
+    // 遍歷所有作答紀錄並逐筆寫入
     if (data.records && data.records.length > 0) {
       data.records.forEach(function(r) {
         sheet.appendRow([
-          new Date(), data.studentClass, data.studentName,
-          r.questionId, r.questionText, r.userAnswer,
-          r.correctAnswer, r.isCorrect ? "正確" : "錯誤", r.knowledgeTag
+          new Date(),
+          data.studentClass,
+          data.studentSeat,
+          data.studentName,
+          r.questionId,
+          r.questionText,
+          r.userAnswer,
+          r.correctAnswer,
+          r.isCorrect ? "正確" : "錯誤",
+          r.knowledgeTag,
+          r.reasonAnalysis
         ]);
       });
     }
@@ -436,7 +460,7 @@ function doPost(e) {
     <!-- JavaScript 邏輯引擎 -->
     <script>
         // ==========================================
-        // 四、硬性約束：指定 5 道題目內容資料庫
+        // 四、題目與知識層面 / 答錯原因資料庫
         // ==========================================
         const QUESTIONS = [
             {
@@ -445,7 +469,11 @@ function doPost(e) {
                 options: ["A. 月餅", "B. 粽子", "C. 年糕"],
                 answer: "C",
                 answerFull: "C. 年糕",
-                tag: "春節傳統習俗飲食"
+                tag: "春節傳統習俗飲食",
+                wrongReasons: {
+                    "A": "混淆中秋節飲食（月餅為中秋特定節點食品）",
+                    "B": "混淆端午節飲食（粽子為端午傳統食品）"
+                }
             },
             {
                 id: 2,
@@ -453,7 +481,11 @@ function doPost(e) {
                 options: ["A. 湯圓", "B. 月餅", "C. 長壽麵"],
                 answer: "B",
                 answerFull: "B. 月餅",
-                tag: "中秋節節慶食品"
+                tag: "中秋節節慶食品",
+                wrongReasons: {
+                    "A": "混淆元宵節/冬至飲食（湯圓象徵團圓但非中秋代表）",
+                    "C": "混淆生日/壽誕民俗（長壽麵為祝壽食品）"
+                }
             },
             {
                 id: 3,
@@ -461,7 +493,11 @@ function doPost(e) {
                 options: ["A. 粽子", "B. 年糕", "C. 蘋果"],
                 answer: "A",
                 answerFull: "A. 粽子",
-                tag: "端午節特定食物"
+                tag: "端午節特定食物",
+                wrongReasons: {
+                    "B": "混淆春節年糕（年糕取意步步高升，屬新春食品）",
+                    "C": "日常生活水果，非端午節慶特定民俗食品"
+                }
             },
             {
                 id: 4,
@@ -469,7 +505,11 @@ function doPost(e) {
                 options: ["A. 燈籠", "B. 風箏", "C. 雨傘"],
                 answer: "A",
                 answerFull: "A. 燈籠",
-                tag: "元宵節應景裝飾"
+                tag: "元宵節應景裝飾",
+                wrongReasons: {
+                    "B": "風箏為清明/秋季戶外休閒活動，非元宵節街頭應景裝飾",
+                    "C": "雨具用品，與節慶燈會民俗無關"
+                }
             },
             {
                 id: 5,
@@ -477,19 +517,22 @@ function doPost(e) {
                 options: ["A. 春節", "B. 中秋節", "C. 端午節"],
                 answer: "C",
                 answerFull: "C. 端午節",
-                tag: "端午節民俗活動"
+                tag: "端午節民俗活動",
+                wrongReasons: {
+                    "A": "春節主要民俗為舞龍舞獅與拜年，無划龍舟活動",
+                    "B": "中秋主要民俗為賞月與猜燈謎，無水上划龍舟賽事"
+                }
             }
         ];
 
         // 寶可夢對戰預設隊伍 (PokéAPI ID)
-        // 玩家：皮卡丘(25), 噴火龍(6), 傑尼龜(7), 妙蛙種子(1)
-        // 敵方：超夢(150), 耿鬼(94), 暴鯉龍(130), 路卡利歐(448)
         const PLAYER_POKEMON_IDS = [25, 6, 7, 1];
         const ENEMY_POKEMON_IDS = [150, 94, 130, 448];
 
         // 遊戲狀態變數
         let studentName = "";
         let studentClass = "";
+        let studentSeat = "";
         
         let playerTeam = [];
         let enemyTeam = [];
@@ -501,39 +544,44 @@ function doPost(e) {
         let isBattleOver = false;
         let isTurnBusy = false;
 
-        // 全域作答記錄模組
-        let quizLogs = []; // { questionId, questionText, userAnswer, correctAnswer, isCorrect, knowledgeTag }
+        // 全域作答記錄模組 (增加 reasonAnalysis 屬性)
+        let quizLogs = []; 
         let isAdminUnlocked = false;
 
+        // 當前問題物件 (供粵語發音讀取)
+        let currentQuestionObj = null;
+
         // =========================================================================
-        // 🎯【步驟一：將部署好的 Google Apps Script 網址填在此處】
+        // 🎯【步驟一：請在此處替換成你在 Google Apps Script 取得的真實部署網址】
         // =========================================================================
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzpERL-ZKirOOHJ8KIobNvT78q3yGBqVZVUhY6vAqpNNVxVm2meBF6COd5GeCkrly0UGQ/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz2Z-gxD7w_2RnlLxmnFSoOSe0p4BsStJQedDKuV43tnJrDX6VxTtfKhnoIeR0Mc2iT/exec";
         // =========================================================================
 
-        // DOM 載入時初始化
         window.onload = function() {
             renderFullQuestionsList();
         };
 
         // ==========================================
-        // 一、登入處理 logic
+        // 一、登入處理 logic (增加學號處理)
         // ==========================================
         async function handleStartGame(e) {
             e.preventDefault();
             const nameInput = document.getElementById("inputName").value.trim();
             const classInput = document.getElementById("inputClass").value.trim();
+            const seatInput = document.getElementById("inputSeat").value.trim();
 
-            if (!nameInput || !classInput) {
-                alert("請完整填寫學生姓名與班別！");
+            if (!nameInput || !classInput || !seatInput) {
+                alert("請完整填寫學生班別、學號與姓名！");
                 return;
             }
 
             studentName = nameInput;
             studentClass = classInput;
+            studentSeat = seatInput;
 
             document.getElementById("displayName").innerText = studentName;
             document.getElementById("displayClass").innerText = studentClass;
+            document.getElementById("displaySeat").innerText = studentSeat;
             document.getElementById("playerBadge").classList.remove("hidden");
             
             // 隱藏登入畫面
@@ -551,17 +599,14 @@ function doPost(e) {
                 const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
                 const data = await res.json();
                 
-                // Gen 5 動態 GIF 精靈圖 (Showdown sprites)
                 const frontGif = data.sprites.other.showdown.front_default || data.sprites.front_default;
                 const backGif = data.sprites.other.showdown.back_default || frontGif;
 
-                // 屬性與能力值
                 const types = data.types.map(t => t.type.name);
-                const hp = data.stats.find(s => s.stat.name === 'hp').base_stat * 3; // 放大血量增加娛樂性
+                const hp = data.stats.find(s => s.stat.name === 'hp').base_stat * 3;
                 const attack = data.stats.find(s => s.stat.name === 'attack').base_stat;
                 const defense = data.stats.find(s => s.stat.name === 'defense').base_stat;
 
-                // 抓取 4 個招式名稱
                 const moves = data.moves.slice(0, 4).map((m, idx) => {
                     const moveNames = ['十萬伏特', '火焰噴射', '水炮', '日光束', '影子球', '龍之波動', '近身戰', '精神強念'];
                     return {
@@ -618,7 +663,6 @@ function doPost(e) {
         async function initBattle() {
             typeWriterText("正在搜尋野生寶可夢與對手數據...");
 
-            // 載入雙方隊伍
             playerTeam = await Promise.all(PLAYER_POKEMON_IDS.map(id => fetchPokemonData(id)));
             enemyTeam = await Promise.all(ENEMY_POKEMON_IDS.map(id => fetchPokemonData(id)));
 
@@ -633,13 +677,11 @@ function doPost(e) {
             enableMoveButtons(true);
         }
 
-        // 切換背景
         function setBg(bgClass) {
             const stage = document.getElementById("battleStage");
             stage.className = `relative flex-grow min-h-[340px] flex flex-col justify-between p-4 md:p-6 transition-all duration-500 overflow-hidden ${bgClass}`;
         }
 
-        // 自動根據出戰寶可夢屬性切換背景
         function autoSetBgByAttribute() {
             const playerType = playerTeam[playerIndex].types[0] || 'normal';
             if (['grass', 'bug', 'poison'].includes(playerType)) {
@@ -651,7 +693,6 @@ function doPost(e) {
             }
         }
 
-        // 打字機效果顯示對話
         function typeWriterText(text, callback) {
             const box = document.getElementById("dialogText");
             box.innerText = "";
@@ -667,35 +708,29 @@ function doPost(e) {
             }, 30);
         }
 
-        // 更新 UI 畫面狀態
         function updateUI() {
             const player = playerTeam[playerIndex];
             const enemy = enemyTeam[enemyIndex];
 
-            // 敵方 UI
             document.getElementById("enemyName").innerText = enemy.zhName;
             document.getElementById("enemyTypes").innerText = enemy.types.join('/').toUpperCase();
             document.getElementById("enemySprite").src = enemy.frontSprite;
             updateHpBar("enemyHpBar", "enemyHpNum", enemy.currentHp, enemy.maxHp);
 
-            // 我方 UI
             document.getElementById("playerName").innerText = player.zhName;
             document.getElementById("playerTypes").innerText = player.types.join('/').toUpperCase();
             document.getElementById("playerSprite").src = player.backSprite;
             updateHpBar("playerHpBar", "playerHpNum", player.currentHp, player.maxHp);
 
-            // 更新技能按鈕
             player.moves.forEach((m, idx) => {
                 const btn = document.getElementById(`moveBtn${idx}`);
                 btn.innerText = `${m.zhName}`;
             });
 
-            // 更新精靈球顯示
             renderBalls("playerBalls", playerTeam);
             renderBalls("enemyBalls", enemyTeam);
         }
 
-        // 動態血條與顏色變化
         function updateHpBar(barId, numId, current, max) {
             const pct = Math.max(0, Math.min(100, (current / max) * 100));
             const bar = document.getElementById(barId);
@@ -704,7 +739,6 @@ function doPost(e) {
             bar.style.width = `${pct}%`;
             num.innerText = `${Math.max(0, current)}/${max}`;
 
-            // 血量顏色切換：綠 -> 黃 -> 紅
             if (pct > 50) {
                 bar.className = "bg-green-500 h-full hp-bar-transition";
             } else if (pct > 20) {
@@ -714,7 +748,6 @@ function doPost(e) {
             }
         }
 
-        // 渲染精靈球隊伍狀態
         function renderBalls(containerId, team) {
             const container = document.getElementById(containerId);
             container.innerHTML = "";
@@ -733,7 +766,7 @@ function doPost(e) {
         }
 
         // ==========================================
-        // 三、答題對戰機制 (選擇技能 -> 彈窗答題)
+        // 三、答題對戰機制 (包含答錯原因分析生成)
         // ==========================================
         function selectMove(moveIndex) {
             if (isTurnBusy || isBattleOver) return;
@@ -741,12 +774,12 @@ function doPost(e) {
             selectedMoveIndex = moveIndex;
             enableMoveButtons(false);
 
-            // 輪流選取 5 道題目
             const q = QUESTIONS[currentQuestionIndex % QUESTIONS.length];
             showQuizModal(q);
         }
 
         function showQuizModal(q) {
+            currentQuestionObj = q; // 儲存當前題目資料
             const modal = document.getElementById("quizModal");
             document.getElementById("quizMoveName").innerText = `招式: ${playerTeam[playerIndex].moves[selectedMoveIndex].zhName}`;
             document.getElementById("quizQuestion").innerText = `Q${currentQuestionIndex + 1}. ${q.question}`;
@@ -763,13 +796,52 @@ function doPost(e) {
             });
 
             modal.classList.remove("hidden");
+
+            // 自動朗讀當前題目與選項 (粵語)
+            speakCurrentQuestion();
+        }
+
+        // ==========================================
+        // 🔊 粵語語音朗讀 (Text-to-Speech) 功能
+        // ==========================================
+        function speakCurrentQuestion() {
+            if (!('speechSynthesis' in window) || !currentQuestionObj) return;
+
+            // 停止前一次尚未讀完的語音
+            window.speechSynthesis.cancel();
+
+            // 組合朗讀內容：題目 + 所有選項
+            const speechText = `${currentQuestionObj.question}。選項有：${currentQuestionObj.options.join('。')}`;
+            const utterance = new SpeechSynthesisUtterance(speechText);
+            
+            // 設定語言為粵語 (zh-HK)
+            utterance.lang = 'zh-HK';
+            utterance.rate = 0.9;  // 稍微放慢語速讓學生聽得更清楚
+            utterance.pitch = 1.0; // 音調
+
+            // 尋找裝置上的粵語語音庫（若有系統專用粵語語音包則優先使用）
+            const voices = window.speechSynthesis.getVoices();
+            const hkVoice = voices.find(v => v.lang === 'zh-HK' || v.lang === 'zh_HK' || v.name.includes('Cantonese') || v.name.includes('Hong Kong'));
+            if (hkVoice) {
+                utterance.voice = hkVoice;
+            }
+
+            window.speechSynthesis.speak(utterance);
         }
 
         function processAnswer(selectedOptionLetter, questionObj) {
+            // 選擇答案後聯即停止語音朗讀
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+
             document.getElementById("quizModal").classList.add("hidden");
 
             const isCorrect = (selectedOptionLetter === questionObj.answer);
             
+            // 分析原因：若答對則顯示觀念清晰，若答錯則擷取預設答錯原因
+            let reason = isCorrect ? "概念掌握正確" : (questionObj.wrongReasons[selectedOptionLetter] || "未能精確掌握傳統節慶與民俗飲食之對應關係");
+
             // 記錄作答數據
             quizLogs.push({
                 questionId: questionObj.id,
@@ -777,7 +849,8 @@ function doPost(e) {
                 userAnswer: selectedOptionLetter,
                 correctAnswer: questionObj.answer,
                 isCorrect: isCorrect,
-                knowledgeTag: questionObj.tag
+                knowledgeTag: questionObj.tag,
+                reasonAnalysis: reason
             });
 
             currentQuestionIndex++;
@@ -788,21 +861,20 @@ function doPost(e) {
                     executePlayerAttack();
                 });
             } else {
-                typeWriterText(`答錯了！回答錯誤本回合無法攻擊！輪到敵方發動攻擊！`, () => {
+                // 答錯時顯示正確答案提示，並設定停留時間為 20 秒 (20000 ms)
+                typeWriterText(`答錯了！👉 正確答案是：【${questionObj.answerFull}】！本回合無法攻擊，輪到敵方行動！`, () => {
                     setTimeout(() => {
                         executeEnemyTurn();
-                    }, 1200);
+                    }, 20000); // 停留 20 秒讓學生看清楚正確答案
                 });
             }
         }
 
-        // 我方發動攻擊
         function executePlayerAttack() {
             const attacker = playerTeam[playerIndex];
             const defender = enemyTeam[enemyIndex];
             const move = attacker.moves[selectedMoveIndex];
 
-            // 播放攻擊與特效
             const playerImg = document.getElementById("playerSprite");
             const enemyImg = document.getElementById("enemySprite");
 
@@ -813,8 +885,10 @@ function doPost(e) {
                 playerImg.classList.remove("animate-attack-player");
                 enemyImg.classList.add("animate-shake", "animate-flash");
 
-                // 計算傷害
-                const damage = Math.floor((attacker.attack / defender.defense) * move.power) + 15;
+                // 傷害計算優化：答對時傷害約為敵方總 HP 的 33% ~ 38%（約需 3 擊擊倒一隻）
+                const baseDamage = Math.floor(defender.maxHp * (0.33 + Math.random() * 0.05));
+                const damage = Math.max(15, baseDamage);
+
                 defender.currentHp -= damage;
                 updateHpBar("enemyHpBar", "enemyHpNum", defender.currentHp, defender.maxHp);
 
@@ -827,8 +901,8 @@ function doPost(e) {
                         typeWriterText(`敵方的 ${defender.zhName} 倒下了！`, () => {
                             enemyIndex++;
                             renderBalls("enemyBalls", enemyTeam);
+
                             if (enemyIndex >= enemyTeam.length) {
-                                // 遊戲勝利
                                 handleGameOver(true);
                             } else {
                                 autoSetBgByAttribute();
@@ -840,14 +914,12 @@ function doPost(e) {
                             }
                         });
                     } else {
-                        // 輪到敵方回合
                         executeEnemyTurn();
                     }
                 }, 800);
             }, 400);
         }
 
-        // 敵方回合行動
         function executeEnemyTurn() {
             const attacker = enemyTeam[enemyIndex];
             const defender = playerTeam[playerIndex];
@@ -864,7 +936,9 @@ function doPost(e) {
                     enemyImg.classList.remove("animate-attack-enemy");
                     playerImg.classList.add("animate-shake", "animate-flash");
 
-                    const damage = Math.floor((attacker.attack / defender.defense) * randMove.power) + 10;
+                    // 敵方傷害計算：約為我方總 HP 的 25% ~ 35%
+                    const baseDamage = Math.floor(defender.maxHp * (0.25 + Math.random() * 0.10));
+                    const damage = Math.max(10, baseDamage);
                     defender.currentHp -= damage;
                     updateHpBar("playerHpBar", "playerHpNum", defender.currentHp, defender.maxHp);
 
@@ -878,7 +952,6 @@ function doPost(e) {
                                 playerIndex++;
                                 renderBalls("playerBalls", playerTeam);
                                 if (playerIndex >= playerTeam.length) {
-                                    // 遊戲失敗
                                     handleGameOver(false);
                                 } else {
                                     autoSetBgByAttribute();
@@ -900,7 +973,6 @@ function doPost(e) {
             });
         }
 
-        // 屬性粒子特效 (火, 水, 草, 電, 預設)
         function spawnParticles(type) {
             const container = document.getElementById("particleLayer");
             const colorMap = {
@@ -946,12 +1018,12 @@ function doPost(e) {
             const modal = document.getElementById("resultModal");
             document.getElementById("resName").innerText = studentName;
             document.getElementById("resClass").innerText = studentClass;
+            document.getElementById("resSeat").innerText = studentSeat;
             
             const outcomeElem = document.getElementById("resOutcome");
             outcomeElem.innerText = isWin ? "勝利 (VICTORY)" : "戰敗 (DEFEAT)";
             outcomeElem.className = isWin ? "font-bold text-base text-green-400" : "font-bold text-base text-red-500";
 
-            // 統計計算
             const total = quizLogs.length;
             const correct = quizLogs.filter(q => q.isCorrect).length;
             const wrong = total - correct;
@@ -962,7 +1034,7 @@ function doPost(e) {
             document.getElementById("statWrong").innerText = wrong;
             document.getElementById("statRate").innerText = `${rate}%`;
 
-            // 渲染錯題清單
+            // 渲染錯題與原因清單
             const wrongList = document.getElementById("wrongList");
             wrongList.innerHTML = "";
             const wrongLogs = quizLogs.filter(q => !q.isCorrect);
@@ -975,14 +1047,14 @@ function doPost(e) {
                     div.className = "bg-gray-800 border border-red-500 p-2 rounded text-[11px]";
                     div.innerHTML = `
                         <p class="text-white font-bold">${idx + 1}. ${item.questionText}</p>
-                        <p class="text-red-400">你的答案：${item.userAnswer}</p>
-                        <p class="text-green-400">正確答案：${item.correctAnswer}</p>
+                        <p class="text-red-400">你的答案：${item.userAnswer} | 正確答案：${item.correctAnswer}</p>
+                        <p class="text-yellow-300">知識屬性：${item.knowledgeTag}</p>
+                        <p class="text-gray-300">診斷分析：${item.reasonAnalysis}</p>
                     `;
                     wrongList.appendChild(div);
                 });
             }
 
-            // 歸納薄弱類型分析
             const analysisText = document.getElementById("analysisText");
             if (wrongLogs.length === 0) {
                 analysisText.innerText = "學生對傳統節日（春節、端午、中秋、元宵）之習俗與飲食認知相當紮實，表現優秀！";
@@ -997,7 +1069,7 @@ function doPost(e) {
             postToGoogleSheets();
         }
 
-        // 將數據 POST 至 Google Sheets (Apps Script)
+        // 將完整數據 POST 至 Google Sheets (Apps Script)
         function postToGoogleSheets() {
             const syncStatus = document.getElementById("syncStatus");
             syncStatus.innerText = "⏳ 正在同步對戰紀錄至 Google Sheets...";
@@ -1005,12 +1077,13 @@ function doPost(e) {
             const payload = {
                 studentName: studentName,
                 studentClass: studentClass,
+                studentSeat: studentSeat,
                 records: quizLogs
             };
 
             fetch(GOOGLE_SCRIPT_URL, {
                 method: "POST",
-                mode: "no-cors", // 跨域提交
+                mode: "no-cors",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             }).then(() => {
@@ -1050,7 +1123,6 @@ function doPost(e) {
             }
         }
 
-        // 渲染完整 5 條題目內容至後台
         function renderFullQuestionsList() {
             const container = document.getElementById("fullQuestionsList");
             container.innerHTML = "";
@@ -1066,13 +1138,12 @@ function doPost(e) {
             });
         }
 
-        // 渲染學生答題記錄表格
         function renderAdminRecordsTable() {
             const tbody = document.getElementById("adminRecordsTable");
             tbody.innerHTML = "";
 
             if (quizLogs.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-2 text-center text-gray-400">當前尚未進行任何答題對戰</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-2 text-center text-gray-400">當前尚未進行任何答題對戰</td></tr>`;
                 return;
             }
 
@@ -1085,6 +1156,7 @@ function doPost(e) {
                     <td class="p-1 text-green-300">${log.correctAnswer}</td>
                     <td class="p-1 ${log.isCorrect ? 'text-green-400' : 'text-red-400'}">${log.isCorrect ? '✓ 正確' : '✗ 錯誤'}</td>
                     <td class="p-1 text-gray-300">${log.knowledgeTag}</td>
+                    <td class="p-1 text-gray-400 text-[9px]">${log.reasonAnalysis}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -1098,17 +1170,18 @@ function doPost(e) {
             }
 
             let csvContent = "\uFEFF"; // UTF-8 BOM
-            csvContent += "學生班別,學生姓名,題目ID,題目內容,學生答案,正確答案,是否正確,知識屬性\n";
+            csvContent += "班別,學號,學生姓名,題目ID,題目內容,學生答案,正確答案,是否正確,知識屬性,答錯原因/診斷分析\n";
 
             quizLogs.forEach(log => {
                 const safeQText = `"${log.questionText.replace(/"/g, '""')}"`;
-                csvContent += `${studentClass},${studentName},${log.questionId},${safeQText},${log.userAnswer},${log.correctAnswer},${log.isCorrect ? '正確' : '錯誤'},${log.knowledgeTag}\n`;
+                const safeReason = `"${log.reasonAnalysis.replace(/"/g, '""')}"`;
+                csvContent += `${studentClass},${studentSeat},${studentName},${log.questionId},${safeQText},${log.userAnswer},${log.correctAnswer},${log.isCorrect ? '正確' : '錯誤'},${log.knowledgeTag},${safeReason}\n`;
             });
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.setAttribute("download", `Pokémon_Battle_Quiz_${studentClass}_${studentName}.csv`);
+            link.setAttribute("download", `Pokémon_Battle_Quiz_${studentClass}_${studentSeat}_${studentName}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
